@@ -1,5 +1,4 @@
 import pytest
-import pytest
 from zoneinfo import ZoneInfo
 
 from slurm_waiting_times.time_utils import (
@@ -32,7 +31,17 @@ def test_parse_datetime_accepts_multiple_formats(value):
     dt = parse_datetime(value, tz)
     assert dt.year == 2024
     assert dt.tzinfo == tz
-
-
-def test_format_timedelta_hms():
-    assert format_timedelta_hms(3661) == "01:01:01"
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (0, "00:00"),
+        (29, "00:00"),
+        (30, "00:01"),
+        (89, "00:01"),
+        (90, "00:02"),
+        (3661, "01:01"),
+        ((24 * 60 * 60) + (2 * 60 * 60) + (30 * 60), "1-02:30"),
+    ],
+)
+def test_format_timedelta_hms(seconds, expected):
+    assert format_timedelta_hms(seconds) == expected
