@@ -80,10 +80,18 @@ def parse_cli_datetime(value: str | None, default: datetime, tzinfo: ZoneInfo) -
 
 
 def format_timedelta_hms(seconds: float) -> str:
-    total_seconds = int(round(seconds))
-    hours, remainder = divmod(total_seconds, 3600)
-    minutes, secs = divmod(remainder, 60)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    """Format ``seconds`` as a human readable duration without seconds."""
+
+    total_minutes = int(math.floor(seconds / 60.0 + 0.5))
+    if total_minutes < 0:
+        total_minutes = 0
+
+    days, remainder_minutes = divmod(total_minutes, 24 * 60)
+    hours, minutes = divmod(remainder_minutes, 60)
+
+    if days >= 1:
+        return f"{days}-{hours:02d}:{minutes:02d}"
+    return f"{hours:02d}:{minutes:02d}"
 
 
 def freedman_diaconis_bins(values: Iterable[float]) -> int:
