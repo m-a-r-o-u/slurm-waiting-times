@@ -25,6 +25,92 @@ def prepare_histogram_values(records: Sequence[JobRecord], *, use_seconds: bool)
 
 LRZ_SKY_BLUE = "#009FE3"
 
+_NICE_TIME_SECONDS = [
+    0.05,
+    0.1,
+    0.2,
+    0.5,
+    1,
+    2,
+    5,
+    10,
+    15,
+    30,
+    45,
+    60,
+    120,
+    300,
+    600,
+    900,
+    1800,
+    2700,
+    3600,
+    5400,
+    7200,
+    10800,
+    14400,
+    21600,
+    28800,
+    43200,
+    64800,
+    86400,
+    172800,
+    345600,
+    604800,
+]
+
+
+def _format_time_value(total_seconds: float) -> str:
+    if total_seconds < 1:
+        milliseconds = total_seconds * 1000
+        if milliseconds < 1:
+            microseconds = milliseconds * 1000
+            return f"{microseconds:.0f} µs"
+        return f"{milliseconds:.0f} ms"
+    if total_seconds < 60:
+        return f"{total_seconds:.0f} s"
+    minutes = total_seconds / 60
+    if minutes < 60:
+        if minutes.is_integer():
+            return f"{minutes:.0f} min"
+        return f"{minutes:.1f} min"
+    hours = minutes / 60
+    if hours < 24:
+        if hours.is_integer():
+            return f"{hours:.0f} h"
+        return f"{hours:.1f} h"
+    days = hours / 24
+    if days < 7:
+        if days.is_integer():
+            return f"{days:.0f} d"
+        return f"{days:.1f} d"
+    weeks = days / 7
+    if weeks.is_integer():
+        return f"{weeks:.0f} wk"
+    return f"{weeks:.1f} wk"
+
+
+def _nice_ticks(min_value: float, max_value: float, *, use_seconds: bool) -> list[float]:
+    if min_value <= 0:
+        min_value = min(tick for tick in _NICE_TIME_SECONDS if tick > 0)
+
+    min_seconds = min_value if use_seconds else min_value * 60
+    max_seconds = max_value if use_seconds else max_value * 60
+    if min_seconds == max_seconds:
+        return [min_value]
+
+    ticks = [tick for tick in _NICE_TIME_SECONDS if min_seconds <= tick <= max_seconds]
+    if not ticks:
+        ticks = [min_seconds, max_seconds]
+    else:
+        max_ticks = 6
+        if len(ticks) > max_ticks:
+            step = math.ceil(len(ticks) / max_ticks)
+            ticks = ticks[::step]
+    if use_seconds:
+        return ticks
+    return [tick / 60 for tick in ticks]
+
 
 def _percentile(sorted_values: Sequence[float], fraction: float) -> float:
     if not 0 <= fraction <= 1:
@@ -123,32 +209,15 @@ def create_histogram(
     mean_display = format_timedelta_hms(mean_seconds)
     if use_seconds:
         xlabel = "Waiting time [seconds]"
-        tick_formatter = None
         mean_line_value = mean_seconds
     else:
         xlabel = "Waiting time [minutes]"
         mean_line_value = mean_seconds / 60.0
 
-        def tick_formatter(_: float, pos: int) -> str:  # pragma: no cover - simple formatting
-            del pos
-            value = _
-            if value < 1:
-                minutes = value
-                seconds = minutes * 60
-                if seconds < 1:
-                    return f"{seconds*1000:.0f} ms"
-                return f"{seconds:.0f} s"
-            if value < 60:
-                return f"{value:.0f} min"
-            if value < 1440:
-                hours = value / 60
-                if hours.is_integer():
-                    return f"{hours:.0f} h"
-                return f"{hours:.1f} h"
-            days = value / 1440
-            if days.is_integer():
-                return f"{days:.0f} d"
-            return f"{days:.1f} d"
+    def tick_formatter(value: float, pos: int) -> str:  # pragma: no cover - simple formatting
+        del pos
+        total_seconds = value if use_seconds else value * 60
+        return _format_time_value(total_seconds)
 
     if mean_line_value <= 0:
         mean_line_value = min_positive / 2
@@ -162,39 +231,27 @@ def create_histogram(
         label=f"Mean wait: {mean_display}",
     )
 
-    axes = [ax_typical, ax_tail]
-    for ax in axes:
-        if not ax.has_data():
+    axes = [
+        (ax_typical, typical_values or adjusted_values),
+        (ax_tail, tail_values),
+    ]
+    formatter = ticker.FuncFormatter(tick_formatter)
+    for ax, axis_values in axes:
+        if not ax.has_data() or not axis_values:
             continue
         ax.set_xscale("log")
-        if tick_formatter is not None:
-            ax.xaxis.set_major_formatter(ticker.FuncFormatter(tick_formatter))
-        ax.tick_params(axis="both", labelsize=11, colors="#303030")
+        ticks = _nice_ticks(min(axis_values), max(axis_values), use_seconds=use_seconds)
+        if ticks:
+            ax.set_xticks(ticks)
+        ax.xaxis.set_major_formatter(formatter)
+        ax.tick_params(axis="x", labelsize=11, colors="#303030", rotation=25)
+        plt.setp(ax.get_xticklabels(), ha="right")
+        ax.tick_params(axis="y", labelsize=11, colors="#303030")
         for spine in ax.spines.values():
             spine.set_visible(False)
         ax.yaxis.grid(True, color="#B7D9F2", linestyle=":", linewidth=0.8, alpha=0.6)
         ax.set_facecolor("white")
-
-    if tick_formatter is not None:
-        x_min, x_max = min(adjusted_values), max(adjusted_values)
-        candidate_ticks = [
-            0.1,
-            0.5,
-            1,
-            5,
-            10,
-            30,
-            60,
-            120,
-            300,
-            600,
-            1440,
-            2880,
-            7200,
-        ]
-        ticks = [tick for tick in candidate_ticks if x_min <= tick <= x_max]
-        if ticks:
-            ax_typical.set_xticks(ticks)
+        ax.margins(x=0.02)
 
     ax_typical.set_xlabel(xlabel, fontsize=13, color="#202020")
     if tail_values:
