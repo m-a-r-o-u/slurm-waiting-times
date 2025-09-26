@@ -218,6 +218,7 @@ def create_histogram(
         if ticks:
             ax.xaxis.set_major_locator(ticker.FixedLocator(ticks))
         ax.xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
         ax.xaxis.get_offset_text().set_visible(False)
         ax.tick_params(axis="x", labelsize=11, colors="#303030", rotation=25)
         plt.setp(ax.get_xticklabels(), ha="right")
