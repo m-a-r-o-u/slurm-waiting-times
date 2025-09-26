@@ -1,4 +1,6 @@
-from slurm_waiting_times.sacct import parse_sacct_output
+from datetime import datetime
+
+from slurm_waiting_times.sacct import build_sacct_command, parse_sacct_output
 
 
 def test_parse_sacct_output_skips_invalid_rows():
@@ -22,3 +24,23 @@ def test_parse_sacct_output_warns_on_bad_timestamp(caplog):
         rows = parse_sacct_output(bad_output, timezone="UTC")
     assert rows == []
     assert "timestamp error" in caplog.text
+
+
+def test_build_sacct_command_includes_all_users_flag_by_default():
+    start = datetime(2025, 9, 15)
+    end = datetime(2025, 9, 22)
+
+    command = build_sacct_command(start, end)
+
+    assert "-a" in command
+    assert "--user" not in command
+
+
+def test_build_sacct_command_uses_specific_users_when_requested():
+    start = datetime(2025, 9, 15)
+    end = datetime(2025, 9, 22)
+
+    command = build_sacct_command(start, end, users=["alice", "bob"])
+
+    assert "-a" not in command
+    assert command[command.index("--user") + 1] == "alice,bob"

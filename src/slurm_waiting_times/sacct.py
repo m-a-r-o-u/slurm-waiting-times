@@ -38,11 +38,13 @@ def build_sacct_command(
         end.strftime("%Y-%m-%dT%H:%M:%S"),
     ]
 
-    if not include_steps:
-        command.append("-X")
-
     if users:
         command.extend(["--user", ",".join(users)])
+    else:
+        command.append("-a")
+
+    if not include_steps:
+        command.append("-X")
 
     if partitions:
         command.extend(["--partition", ",".join(partitions)])
