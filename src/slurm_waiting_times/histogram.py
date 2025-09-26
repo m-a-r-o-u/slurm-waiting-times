@@ -61,16 +61,7 @@ _NICE_TIME_SECONDS = [
 
 
 def _format_time_value(total_seconds: float) -> str:
-    total_minutes = int(math.floor(total_seconds / 60 + 0.5))
-    if total_minutes < 0:
-        total_minutes = 0
-
-    days, remainder_minutes = divmod(total_minutes, 24 * 60)
-    hours, minutes = divmod(remainder_minutes, 60)
-
-    if days >= 1:
-        return f"{days}-{hours:02d}:{minutes:02d}"
-    return f"{hours:02d}:{minutes:02d}"
+    return format_timedelta_hms(total_seconds)
 
 
 def _nice_ticks(min_value: float, max_value: float, *, use_seconds: bool) -> list[float]:
@@ -225,8 +216,15 @@ def create_histogram(
         ax.set_xscale("log")
         ticks = _nice_ticks(min(axis_values), max(axis_values), use_seconds=use_seconds)
         if ticks:
+            locator = ticker.FixedLocator(ticks)
+            ax.xaxis.set_major_locator(locator)
             ax.set_xticks(ticks)
+        else:
+            ax.xaxis.set_major_locator(ticker.NullLocator())
+        ax.xaxis.set_minor_locator(ticker.NullLocator())
+        ax.xaxis.set_minor_formatter(ticker.NullFormatter())
         ax.xaxis.set_major_formatter(formatter)
+        ax.xaxis.get_offset_text().set_visible(False)
         ax.tick_params(axis="x", labelsize=11, colors="#303030", rotation=25)
         plt.setp(ax.get_xticklabels(), ha="right")
         ax.tick_params(axis="y", labelsize=11, colors="#303030")
