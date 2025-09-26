@@ -52,8 +52,8 @@ def test_create_histogram_draws_mean_line():
 
 def test_format_time_value_rounds_to_minutes():
     # 89 seconds should round down, while 90 rounds up
-    assert _format_time_value(89) == "00:01"
-    assert _format_time_value(90) == "00:02"
+    assert _format_time_value(89) == "0-00:01"
+    assert _format_time_value(90) == "0-00:02"
 
 
 def test_format_time_value_includes_days():
