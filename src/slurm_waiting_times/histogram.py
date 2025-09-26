@@ -61,33 +61,16 @@ _NICE_TIME_SECONDS = [
 
 
 def _format_time_value(total_seconds: float) -> str:
-    if total_seconds < 1:
-        milliseconds = total_seconds * 1000
-        if milliseconds < 1:
-            microseconds = milliseconds * 1000
-            return f"{microseconds:.0f} µs"
-        return f"{milliseconds:.0f} ms"
-    if total_seconds < 60:
-        return f"{total_seconds:.0f} s"
-    minutes = total_seconds / 60
-    if minutes < 60:
-        if minutes.is_integer():
-            return f"{minutes:.0f} min"
-        return f"{minutes:.1f} min"
-    hours = minutes / 60
-    if hours < 24:
-        if hours.is_integer():
-            return f"{hours:.0f} h"
-        return f"{hours:.1f} h"
-    days = hours / 24
-    if days < 7:
-        if days.is_integer():
-            return f"{days:.0f} d"
-        return f"{days:.1f} d"
-    weeks = days / 7
-    if weeks.is_integer():
-        return f"{weeks:.0f} wk"
-    return f"{weeks:.1f} wk"
+    total_minutes = int(math.floor(total_seconds / 60 + 0.5))
+    if total_minutes < 0:
+        total_minutes = 0
+
+    days, remainder_minutes = divmod(total_minutes, 24 * 60)
+    hours, minutes = divmod(remainder_minutes, 60)
+
+    if days >= 1:
+        return f"{days}-{hours:02d}:{minutes:02d}"
+    return f"{hours:02d}:{minutes:02d}"
 
 
 def _nice_ticks(min_value: float, max_value: float, *, use_seconds: bool) -> list[float]:

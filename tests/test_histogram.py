@@ -5,7 +5,11 @@ import pytest
 pytest.importorskip("matplotlib")
 from matplotlib import pyplot as plt
 
-from slurm_waiting_times.histogram import create_histogram, prepare_histogram_values
+from slurm_waiting_times.histogram import (
+    _format_time_value,
+    create_histogram,
+    prepare_histogram_values,
+)
 from slurm_waiting_times.models import JobRecord
 
 
@@ -44,3 +48,14 @@ def test_create_histogram_draws_mean_line():
     assert "Mean wait" in line.get_label()
     fig.clf()
     plt.close(fig)
+
+
+def test_format_time_value_rounds_to_minutes():
+    # 89 seconds should round down, while 90 rounds up
+    assert _format_time_value(89) == "00:01"
+    assert _format_time_value(90) == "00:02"
+
+
+def test_format_time_value_includes_days():
+    total_seconds = (1 * 24 * 60 + 2 * 60 + 30) * 60
+    assert _format_time_value(total_seconds) == "1-02:30"
