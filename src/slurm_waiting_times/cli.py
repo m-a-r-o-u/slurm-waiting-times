@@ -148,11 +148,14 @@ def _title(
 ) -> str:
     user_summary = ",".join(users) if users else "all users"
     partition_summary = ",".join(partitions) if partitions else "all partitions"
-    steps_summary = "steps included" if include_steps else "steps excluded"
+    steps_summary = "steps included" if include_steps else None
+    details = [user_summary, partition_summary]
+    if steps_summary:
+        details.append(steps_summary)
     return (
         "Waiting times "
         f"{start.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')} "
-        f"({user_summary}; {partition_summary}; {steps_summary})"
+        f"({'; '.join(details)})"
     )
 
 
