@@ -149,9 +149,7 @@ def format_timedelta_hms(seconds: float) -> str:
     days, remainder_minutes = divmod(total_minutes, 24 * 60)
     hours, minutes = divmod(remainder_minutes, 60)
 
-    if days >= 1:
-        return f"{days}-{hours:02d}:{minutes:02d}"
-    return f"{hours:02d}:{minutes:02d}"
+    return f"{days}-{hours:02d}:{minutes:02d}"
 
 
 def freedman_diaconis_bins(values: Iterable[float]) -> int:
