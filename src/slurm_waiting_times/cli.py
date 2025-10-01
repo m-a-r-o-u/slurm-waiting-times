@@ -106,7 +106,6 @@ def _format_datetime_for_token(value: datetime) -> str:
 def _args_tokens(
     *,
     start_supplied: bool,
-    end_supplied: bool,
     start_value: datetime,
     end_value: datetime,
     users: Sequence[str] | None,
@@ -120,8 +119,7 @@ def _args_tokens(
     tokens: list[str] = []
     if start_supplied:
         tokens.append(f"start={_format_datetime_for_token(start_value)}")
-    if end_supplied:
-        tokens.append(f"end={_format_datetime_for_token(end_value)}")
+    tokens.append(f"end={_format_datetime_for_token(end_value)}")
     if users:
         tokens.append(f"user={','.join(users)}")
     else:
@@ -239,7 +237,6 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     tokens = _args_tokens(
         start_supplied=args.start is not None,
-        end_supplied=args.end is not None,
         start_value=start_dt,
         end_value=end_dt,
         users=users,
