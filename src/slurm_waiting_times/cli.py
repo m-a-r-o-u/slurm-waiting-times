@@ -15,7 +15,7 @@ from .sacct import SacctError, build_sacct_command, parse_sacct_output, run_sacc
 from .time_utils import (
     ensure_timezone,
     format_timedelta_hms,
-    parse_cli_datetime,
+    parse_cli_datetime_window,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -170,8 +170,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     default_start = now - timedelta(days=DEFAULT_WINDOW_DAYS)
 
     try:
-        start_dt = parse_cli_datetime(args.start, default_start, tzinfo)
-        end_dt = parse_cli_datetime(args.end, default_end, tzinfo)
+        start_dt, end_dt = parse_cli_datetime_window(
+            args.start,
+            args.end,
+            default_start,
+            default_end,
+            tzinfo,
+        )
     except ValueError as exc:
         print(f"Error parsing date: {exc}", file=sys.stderr)
         return 2

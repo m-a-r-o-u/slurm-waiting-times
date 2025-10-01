@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pytest
 from zoneinfo import ZoneInfo
 
@@ -5,6 +7,7 @@ from slurm_waiting_times.time_utils import (
     format_timedelta_hms,
     freedman_diaconis_bins,
     parse_datetime,
+    parse_cli_datetime_window,
 )
 
 
@@ -45,3 +48,45 @@ def test_parse_datetime_accepts_multiple_formats(value):
 )
 def test_format_timedelta_hms(seconds, expected):
     assert format_timedelta_hms(seconds) == expected
+
+
+def test_parse_cli_datetime_window_month_only_start_and_default_end():
+    tz = ZoneInfo("UTC")
+    default_start = datetime(2024, 1, 15, tzinfo=tz)
+    default_end = datetime(2024, 1, 31, tzinfo=tz)
+
+    start, end = parse_cli_datetime_window("2025-09", None, default_start, default_end, tz)
+
+    assert start == datetime(2025, 9, 1, tzinfo=tz)
+    assert end == datetime(2025, 9, 30, 23, 59, 59, tzinfo=tz)
+
+
+def test_parse_cli_datetime_window_month_only_start_and_end():
+    tz = ZoneInfo("UTC")
+    default_start = datetime(2024, 1, 15, tzinfo=tz)
+    default_end = datetime(2024, 1, 31, tzinfo=tz)
+
+    start, end = parse_cli_datetime_window("2025-09", "2025-12", default_start, default_end, tz)
+
+    assert start == datetime(2025, 9, 1, tzinfo=tz)
+    assert end == datetime(2025, 12, 31, 23, 59, 59, tzinfo=tz)
+
+
+def test_parse_cli_datetime_window_default_start_and_month_only_end():
+    tz = ZoneInfo("UTC")
+    default_start = datetime(2024, 1, 15, tzinfo=tz)
+    default_end = datetime(2024, 1, 31, tzinfo=tz)
+
+    start, end = parse_cli_datetime_window(None, "2025-12", default_start, default_end, tz)
+
+    assert start == default_start
+    assert end == datetime(2025, 12, 31, 23, 59, 59, tzinfo=tz)
+
+
+def test_parse_cli_datetime_window_invalid_month():
+    tz = ZoneInfo("UTC")
+    default_start = datetime(2024, 1, 15, tzinfo=tz)
+    default_end = datetime(2024, 1, 31, tzinfo=tz)
+
+    with pytest.raises(ValueError):
+        parse_cli_datetime_window("2025-13", None, default_start, default_end, tz)
