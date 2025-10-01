@@ -23,17 +23,16 @@ def compact_args(tokens: Sequence[str]) -> str | None:
 
     joined = "_".join(token.replace(" ", "_") for token in tokens)
     sanitised = _SANITIZE_RE.sub("_", joined)
-    if len(sanitised) > 40:
-        sanitised = sanitised[:40]
+    if len(sanitised) > 80:
+        sanitised = sanitised[:80]
     return sanitised
 
 
 def build_prefix(now: datetime, tokens: Sequence[str]) -> str:
-    timestamp = now.strftime("%Y-%m-%d_%H:%M")
     args_part = compact_args(tokens)
     if args_part:
-        return f"{timestamp}-{args_part}"
-    return timestamp
+        return args_part
+    return now.strftime("%Y-%m-%d")
 
 
 def results_csv_path(prefix: str) -> Path:

@@ -185,7 +185,7 @@ def create_histogram(
         xlabel = "Waiting time [seconds]"
         mean_line_value = mean_seconds
     else:
-        xlabel = "Waiting time [minutes]"
+        xlabel = "Waiting time"
         mean_line_value = mean_seconds / 60.0
 
     def tick_formatter(value: float, pos: int) -> str:  # pragma: no cover - simple formatting

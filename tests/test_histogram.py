@@ -41,7 +41,7 @@ def test_create_histogram_draws_mean_line():
     records = [make_record(5), make_record(15)]
     fig = create_histogram(records, use_seconds=False, bins=2, title="Example")
     ax = fig.axes[0]
-    assert ax.get_xlabel() == "Waiting time [minutes]"
+    assert ax.get_xlabel() == "Waiting time"
     assert ax.lines, "Expected a mean line"
     line = ax.lines[0]
     assert pytest.approx(line.get_xdata()[0], rel=1e-6) == 10.0
