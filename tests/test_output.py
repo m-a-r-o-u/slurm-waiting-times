@@ -10,7 +10,13 @@ def test_compact_args_sanitises_and_truncates():
     assert "*" not in compact
 
 
-def test_build_prefix_includes_timestamp():
+def test_build_prefix_uses_tokens_without_timestamp():
     now = datetime(2024, 5, 1, 12, 30)
-    prefix = build_prefix(now, ["start=20240501"])
-    assert prefix.startswith("2024-05-01_12:30-start=20240501")
+    prefix = build_prefix(now, ["start=2024-05-01", "user=all"])
+    assert prefix == "start=2024-05-01_user=all"
+
+
+def test_build_prefix_falls_back_to_date():
+    now = datetime(2024, 5, 1, 12, 30)
+    prefix = build_prefix(now, [])
+    assert prefix == "2024-05-01"

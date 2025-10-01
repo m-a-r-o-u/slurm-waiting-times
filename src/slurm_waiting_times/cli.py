@@ -95,6 +95,14 @@ def _prepare_filters(user_arg: str | None, partition_arg: str | None) -> tuple[l
     return users, partitions
 
 
+def _format_datetime_for_token(value: datetime) -> str:
+    if value.second or value.microsecond:
+        return value.strftime("%Y-%m-%dT%H:%M:%S")
+    if value.hour == 0 and value.minute == 0:
+        return value.strftime("%Y-%m-%d")
+    return value.strftime("%Y-%m-%dT%H:%M")
+
+
 def _args_tokens(
     *,
     start_supplied: bool,
@@ -111,17 +119,18 @@ def _args_tokens(
 ) -> list[str]:
     tokens: list[str] = []
     if start_supplied:
-        tokens.append(f"start={start_value.strftime('%Y%m%dT%H%M')}")
+        tokens.append(f"start={_format_datetime_for_token(start_value)}")
     if end_supplied:
-        tokens.append(f"end={end_value.strftime('%Y%m%dT%H%M')}")
+        tokens.append(f"end={_format_datetime_for_token(end_value)}")
     if users:
         tokens.append(f"user={','.join(users)}")
+    else:
+        tokens.append("user=all")
     if partitions:
         tokens.append(f"partition={','.join(partitions)}")
     if include_steps:
         tokens.append("steps")
-    if tz:
-        tokens.append(f"tz={tz}")
+    # Timezone is intentionally omitted from the filename prefix for clarity.
     if bins is not None:
         tokens.append(f"bins={bins}")
     if bin_seconds:
@@ -141,7 +150,7 @@ def _title(
 ) -> str:
     user_summary = ",".join(users) if users else "all users"
     partition_summary = ",".join(partitions) if partitions else "all partitions"
-    steps_summary = "steps included" if include_steps else "top-level jobs"
+    steps_summary = "steps included" if include_steps else "steps excluded"
     return (
         "Waiting times "
         f"{start.strftime('%Y-%m-%d')} → {end.strftime('%Y-%m-%d')} "
