@@ -25,6 +25,8 @@ slurm-waiting-times [--start <time>] [--end <time>] [--user <list>] [--partition
 ```
 
 * `--start` / `--end`: ISO or Slurm-style datetimes. Defaults to the last 14 days ending “now”.
+  Supplying a year and month (e.g. `2025-09`) expands to the first or last day of
+  that month as appropriate, allowing quick whole-month reports.
 * `--user`: comma-separated users to include. Array-task IDs (e.g. `12345_7`) are kept, job steps (`12345.batch`) are dropped unless `--include-steps` is present.
 * `--partition`: comma-separated list of partitions; shell-style wildcards are accepted.
 * `--tz`: interpret timestamps in the supplied IANA timezone (defaults to the local system zone).

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import calendar
+import re
 from datetime import datetime
 from typing import Iterable
 from zoneinfo import ZoneInfo
@@ -70,6 +72,29 @@ def parse_datetime(value: str, tzinfo: ZoneInfo) -> datetime:
     return dt
 
 
+_MONTH_ONLY_PATTERN = re.compile(r"^(?P<year>\d{4})-(?P<month>\d{2})$")
+
+
+def _month_bounds(year: int, month: int, tzinfo: ZoneInfo) -> tuple[datetime, datetime]:
+    """Return the first and last instants of ``year``-``month`` in ``tzinfo``."""
+
+    first = datetime(year, month, 1, tzinfo=tzinfo)
+    last_day = calendar.monthrange(year, month)[1]
+    last = datetime(year, month, last_day, 23, 59, 59, tzinfo=tzinfo)
+    return first, last
+
+
+def _parse_month(value: str, tzinfo: ZoneInfo) -> tuple[datetime, datetime]:
+    match = _MONTH_ONLY_PATTERN.match(value.strip())
+    if not match:
+        raise ValueError(f"Unrecognised month format: '{value}'")
+    year = int(match.group("year"))
+    month = int(match.group("month"))
+    if not 1 <= month <= 12:
+        raise ValueError(f"Unrecognised month format: '{value}'")
+    return _month_bounds(year, month, tzinfo)
+
+
 def parse_cli_datetime(value: str | None, default: datetime, tzinfo: ZoneInfo) -> datetime:
     """Parse a CLI datetime argument, falling back to ``default``."""
 
@@ -77,6 +102,41 @@ def parse_cli_datetime(value: str | None, default: datetime, tzinfo: ZoneInfo) -
         return default.astimezone(tzinfo)
 
     return parse_datetime(value, tzinfo)
+
+
+def parse_cli_datetime_window(
+    start_value: str | None,
+    end_value: str | None,
+    default_start: datetime,
+    default_end: datetime,
+    tzinfo: ZoneInfo,
+) -> tuple[datetime, datetime]:
+    """Parse CLI datetime arguments with optional month-based shortcuts."""
+
+    default_start = default_start.astimezone(tzinfo)
+    default_end = default_end.astimezone(tzinfo)
+
+    inferred_end: datetime | None = None
+
+    if start_value is None:
+        start_dt = default_start
+    else:
+        stripped = start_value.strip()
+        if _MONTH_ONLY_PATTERN.match(stripped):
+            start_dt, inferred_end = _parse_month(stripped, tzinfo)
+        else:
+            start_dt = parse_datetime(stripped, tzinfo)
+
+    if end_value is None:
+        end_dt = inferred_end if inferred_end is not None else default_end
+    else:
+        stripped = end_value.strip()
+        if _MONTH_ONLY_PATTERN.match(stripped):
+            _, end_dt = _parse_month(stripped, tzinfo)
+        else:
+            end_dt = parse_datetime(stripped, tzinfo)
+
+    return start_dt, end_dt
 
 
 def format_timedelta_hms(seconds: float) -> str:
