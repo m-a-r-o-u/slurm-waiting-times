@@ -12,8 +12,15 @@ def test_compact_args_sanitises_and_truncates():
 
 def test_build_prefix_uses_tokens_without_timestamp():
     now = datetime(2024, 5, 1, 12, 30)
-    prefix = build_prefix(now, ["start=2024-05-01", "user=all"])
-    assert prefix == "start=2024-05-01_user=all"
+    prefix = build_prefix(
+        now,
+        [
+            "start=2024-05-01",
+            "end=2024-05-31",
+            "user=all",
+        ],
+    )
+    assert prefix == "start=2024-05-01_end=2024-05-31_user=all"
 
 
 def test_build_prefix_falls_back_to_date():
