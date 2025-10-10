@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 import shlex
 import sys
 from datetime import datetime, timedelta
@@ -10,12 +11,13 @@ from typing import Sequence
 
 from .histogram import create_histogram
 from .output import build_prefix, histogram_path, results_csv_path, write_results_csv
-from .processing import filter_rows
+from .processing import RuntimeConstraint, filter_rows
 from .sacct import SacctError, build_sacct_command, parse_sacct_output, run_sacct
 from .time_utils import (
     ensure_timezone,
     format_timedelta_hms,
     parse_cli_datetime_window,
+    parse_duration_to_seconds,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -74,6 +76,14 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         type=float,
         help="Discard jobs whose waiting time exceeds this number of hours.",
     )
+    parser.add_argument(
+        "--runtime",
+        action="append",
+        help=(
+            "Filter jobs by elapsed runtime. Accepts comparisons such as "
+            "<01:00:00 or ranges like 01:00:00-02:00:00."
+        ),
+    )
 
     return parser.parse_args(argv)
 
@@ -100,6 +110,90 @@ def _prepare_filters(user_arg: str | None, partition_arg: str | None) -> tuple[l
     return users, partitions
 
 
+_RUNTIME_RANGE_PATTERN = re.compile(
+    r"^(?P<start>(?:\d+-)?\d+:[0-5]?\d:[0-5]?\d)-(?P<end>(?:\d+-)?\d+:[0-5]?\d:[0-5]?\d)$"
+)
+
+
+def _parse_runtime_value(value: str) -> RuntimeConstraint:
+    if not value or not value.strip():
+        raise CliError("--runtime requires a non-empty value")
+
+    raw = value.strip()
+    lowered = raw.lower()
+
+    if lowered.startswith("shorter:"):
+        _, _, duration = raw.partition(":")
+        if not duration:
+            raise CliError(f"Invalid --runtime value '{value}': missing duration")
+        try:
+            seconds = parse_duration_to_seconds(duration)
+        except ValueError as exc:
+            raise CliError(f"Invalid --runtime value '{value}': {exc}") from exc
+        return RuntimeConstraint(max_seconds=seconds, max_inclusive=False)
+
+    if lowered.startswith("longer:"):
+        _, _, duration = raw.partition(":")
+        if not duration:
+            raise CliError(f"Invalid --runtime value '{value}': missing duration")
+        try:
+            seconds = parse_duration_to_seconds(duration)
+        except ValueError as exc:
+            raise CliError(f"Invalid --runtime value '{value}': {exc}") from exc
+        return RuntimeConstraint(min_seconds=seconds, min_inclusive=False)
+
+    range_match = _RUNTIME_RANGE_PATTERN.match(raw)
+    if range_match:
+        try:
+            start_seconds = parse_duration_to_seconds(range_match.group("start"))
+            end_seconds = parse_duration_to_seconds(range_match.group("end"))
+        except ValueError as exc:
+            raise CliError(f"Invalid --runtime value '{value}': {exc}") from exc
+        if start_seconds > end_seconds:
+            raise CliError(f"Invalid --runtime range '{value}': start exceeds end")
+        return RuntimeConstraint(
+            min_seconds=start_seconds,
+            max_seconds=end_seconds,
+            min_inclusive=True,
+            max_inclusive=True,
+        )
+
+    for prefix, inclusive in (("<=", True), (">=", True), ("<", False), (">", False), ("=", True)):
+        if raw.startswith(prefix):
+            duration = raw[len(prefix) :].strip()
+            try:
+                seconds = parse_duration_to_seconds(duration)
+            except ValueError as exc:
+                raise CliError(f"Invalid --runtime value '{value}': {exc}") from exc
+            if prefix.startswith("<"):
+                return RuntimeConstraint(max_seconds=seconds, max_inclusive=inclusive)
+            if prefix.startswith(">"):
+                return RuntimeConstraint(min_seconds=seconds, min_inclusive=inclusive)
+            return RuntimeConstraint(
+                min_seconds=seconds,
+                max_seconds=seconds,
+                min_inclusive=True,
+                max_inclusive=True,
+            )
+
+    try:
+        seconds = parse_duration_to_seconds(raw)
+    except ValueError as exc:
+        raise CliError(f"Invalid --runtime value '{value}': {exc}") from exc
+    return RuntimeConstraint(
+        min_seconds=seconds,
+        max_seconds=seconds,
+        min_inclusive=True,
+        max_inclusive=True,
+    )
+
+
+def _parse_runtime_filters(values: Sequence[str] | None) -> list[RuntimeConstraint]:
+    if not values:
+        return []
+    return [_parse_runtime_value(value) for value in values]
+
+
 def _format_datetime_for_token(value: datetime) -> str:
     if value.second or value.microsecond:
         return value.strftime("%Y-%m-%dT%H:%M:%S")
@@ -121,6 +215,7 @@ def _args_tokens(
     bin_seconds: bool,
     max_wait_hours: float | None,
     job_type: str | None,
+    runtime_filters: Sequence[str] | None,
 ) -> list[str]:
     tokens: list[str] = []
     if start_supplied:
@@ -143,6 +238,8 @@ def _args_tokens(
         tokens.append("seconds")
     if max_wait_hours is not None:
         tokens.append(f"maxwait={max_wait_hours:g}")
+    if runtime_filters:
+        tokens.extend(f"runtime={value}" for value in runtime_filters)
     return tokens
 
 
@@ -176,6 +273,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args = parse_arguments(argv)
         bins = _validate_bins(args.bins)
         max_wait = _validate_max_wait(args.max_wait_hours)
+        runtime_constraints = _parse_runtime_filters(args.runtime)
     except CliError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
@@ -237,6 +335,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         partition_filters=partitions,
         job_type=args.job_type,
         max_wait_hours=max_wait,
+        runtime_filters=runtime_constraints,
     )
 
     if not records:
@@ -262,6 +361,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         bin_seconds=args.bin_seconds,
         max_wait_hours=max_wait,
         job_type=args.job_type,
+        runtime_filters=args.runtime,
     )
     prefix = build_prefix(now, tokens)
 

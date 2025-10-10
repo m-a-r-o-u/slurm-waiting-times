@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from slurm_waiting_times.models import SacctRow
-from slurm_waiting_times.processing import determine_job_type, filter_rows
+from slurm_waiting_times.processing import RuntimeConstraint, determine_job_type, filter_rows
 
 
 TZ = timezone.utc
@@ -16,6 +16,7 @@ def make_row(
     partition: str = "gpu",
     nodes: int | None = 1,
     alloc_tres: str | None = "gres/gpu=1",
+    elapsed_seconds: float | None = 600,
 ) -> SacctRow:
     submit = datetime(2024, 5, 1, 12, 0, tzinfo=TZ) + timedelta(minutes=submit_offset)
     start = datetime(2024, 5, 1, 12, 0, tzinfo=TZ) + timedelta(minutes=start_offset)
@@ -28,6 +29,7 @@ def make_row(
         partition=partition,
         nodes=nodes,
         alloc_tres=alloc_tres,
+        elapsed_seconds=elapsed_seconds,
     )
 
 
@@ -73,6 +75,7 @@ def test_filter_rows_excludes_steps_and_filters_users_partitions():
     assert [record.job_id for record in filtered] == ["123", "456"]
     assert filtered[0].wait_seconds == 600
     assert filtered[1].wait_seconds == 300
+    assert filtered[0].elapsed_seconds == 600
 
 
 def test_filter_rows_max_wait_hours():
@@ -110,3 +113,20 @@ def test_filter_rows_supports_job_type_filter():
     filtered = filter_rows(rows, job_type="1-gpu")
     assert [record.job_id for record in filtered] == ["one-gpu"]
     assert filtered[0].job_type == "1-gpu"
+
+
+def test_filter_rows_runtime_filters():
+    rows = [
+        make_row("short", 0, 10, elapsed_seconds=1800),
+        make_row("medium", 0, 15, elapsed_seconds=None),
+        make_row("long", 0, 20, elapsed_seconds=7200),
+    ]
+
+    constraints = [
+        RuntimeConstraint(min_seconds=1800, min_inclusive=True),
+        RuntimeConstraint(max_seconds=7200, max_inclusive=False),
+    ]
+
+    filtered = filter_rows(rows, runtime_filters=constraints)
+
+    assert [record.job_id for record in filtered] == ["short"]

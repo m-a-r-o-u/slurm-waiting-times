@@ -154,6 +154,38 @@ def format_timedelta_hms(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}"
 
 
+_DURATION_PATTERN = re.compile(
+    r"^(?:(?P<days>\d+)-)?(?P<hours>\d+):(?P<minutes>[0-5]?\d):(?P<seconds>[0-5]?\d)$"
+)
+
+
+def parse_duration_to_seconds(value: str) -> int:
+    """Parse a Slurm duration string into the total number of seconds.
+
+    Accepted formats include ``HH:MM:SS`` and ``DD-HH:MM:SS``.  Minutes and seconds
+    must be in the range 0-59.  Raises :class:`ValueError` when the value cannot be
+    interpreted.
+    """
+
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("empty duration value")
+
+    match = _DURATION_PATTERN.match(stripped)
+    if not match:
+        raise ValueError(f"Unrecognised duration format: '{value}'")
+
+    days = int(match.group("days") or 0)
+    hours = int(match.group("hours"))
+    minutes = int(match.group("minutes"))
+    seconds = int(match.group("seconds"))
+
+    if minutes >= 60 or seconds >= 60:
+        raise ValueError(f"Unrecognised duration format: '{value}'")
+
+    return ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+
+
 def freedman_diaconis_bins(values: Iterable[float]) -> int:
     data = [float(v) for v in values]
     n = len(data)
