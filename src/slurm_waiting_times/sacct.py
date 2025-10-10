@@ -11,7 +11,7 @@ from .time_utils import ensure_timezone, parse_datetime
 LOGGER = logging.getLogger(__name__)
 
 
-SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocGRES"
+SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocTRES"
 INVALID_START_VALUES = {"unknown", "none", "", "n/a", "invalid"}
 EMPTY_FIELD_VALUES = {"", "none", "n/a", "unknown", "(null)"}
 
@@ -97,7 +97,7 @@ def parse_sacct_output(
             state,
             partition,
             raw_nodes,
-            alloc_gres,
+            alloc_tres,
         ) = parts
         if start.strip().lower() in INVALID_START_VALUES:
             LOGGER.debug("Dropping job %s due to invalid start value '%s'", job_id, start)
@@ -118,9 +118,9 @@ def parse_sacct_output(
             except ValueError:
                 LOGGER.debug("Unable to parse node count '%s' for job %s", raw_nodes, job_id)
 
-        alloc_gres_value = alloc_gres.strip() or None
-        if alloc_gres_value and alloc_gres_value.lower() in EMPTY_FIELD_VALUES:
-            alloc_gres_value = None
+        alloc_tres_value = alloc_tres.strip() or None
+        if alloc_tres_value and alloc_tres_value.lower() in EMPTY_FIELD_VALUES:
+            alloc_tres_value = None
 
         rows.append(
             SacctRow(
@@ -131,7 +131,7 @@ def parse_sacct_output(
                 state=state,
                 partition=partition,
                 nodes=nodes,
-                alloc_gres=alloc_gres_value,
+                alloc_tres=alloc_tres_value,
             )
         )
 

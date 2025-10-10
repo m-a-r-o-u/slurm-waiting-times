@@ -15,7 +15,17 @@ class SacctRow:
     state: str
     partition: str
     nodes: int | None
-    alloc_gres: str | None
+    alloc_tres: str | None
+
+    @property
+    def alloc_gres(self) -> str | None:  # pragma: no cover - compatibility shim
+        """Backward compatible alias for the removed AllocGRES field."""
+
+        return self.alloc_tres
+
+    @alloc_gres.setter  # pragma: no cover - compatibility shim
+    def alloc_gres(self, value: str | None) -> None:
+        self.alloc_tres = value
 
 
 @dataclass(slots=True)
