@@ -11,8 +11,9 @@ from .time_utils import ensure_timezone, parse_datetime
 LOGGER = logging.getLogger(__name__)
 
 
-SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition"
+SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocGRES"
 INVALID_START_VALUES = {"unknown", "none", "", "n/a", "invalid"}
+EMPTY_FIELD_VALUES = {"", "none", "n/a", "unknown", "(null)"}
 
 
 class SacctError(RuntimeError):
@@ -84,11 +85,20 @@ def parse_sacct_output(
             continue
 
         parts = line.split("|")
-        if len(parts) != 6:
+        if len(parts) != 8:
             LOGGER.warning("Skipping malformed sacct row: %s", raw_line)
             continue
 
-        job_id, user, submit, start, state, partition = parts
+        (
+            job_id,
+            user,
+            submit,
+            start,
+            state,
+            partition,
+            raw_nodes,
+            alloc_gres,
+        ) = parts
         if start.strip().lower() in INVALID_START_VALUES:
             LOGGER.debug("Dropping job %s due to invalid start value '%s'", job_id, start)
             continue
@@ -100,6 +110,18 @@ def parse_sacct_output(
             LOGGER.warning("Skipping job %s because of timestamp error: %s", job_id, exc)
             continue
 
+        nodes = None
+        raw_nodes_stripped = raw_nodes.strip()
+        if raw_nodes_stripped and raw_nodes_stripped.lower() not in EMPTY_FIELD_VALUES:
+            try:
+                nodes = int(raw_nodes_stripped)
+            except ValueError:
+                LOGGER.debug("Unable to parse node count '%s' for job %s", raw_nodes, job_id)
+
+        alloc_gres_value = alloc_gres.strip() or None
+        if alloc_gres_value and alloc_gres_value.lower() in EMPTY_FIELD_VALUES:
+            alloc_gres_value = None
+
         rows.append(
             SacctRow(
                 job_id=job_id,
@@ -108,6 +130,8 @@ def parse_sacct_output(
                 start_time=start_dt,
                 state=state,
                 partition=partition,
+                nodes=nodes,
+                alloc_gres=alloc_gres_value,
             )
         )
 

@@ -54,6 +54,9 @@ def write_results_csv(path: Path, records: Iterable[JobRecord]) -> None:
                 "Start",
                 "State",
                 "Partition",
+                "Nodes",
+                "AllocGRES",
+                "JobType",
                 "WaitSeconds",
             ]
         )
@@ -66,6 +69,9 @@ def write_results_csv(path: Path, records: Iterable[JobRecord]) -> None:
                     record.start_time.isoformat(),
                     record.state,
                     record.partition,
+                    "" if record.nodes is None else record.nodes,
+                    record.alloc_gres or "",
+                    record.job_type or "",
                     f"{record.wait_seconds:.2f}",
                 ]
             )
