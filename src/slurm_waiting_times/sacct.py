@@ -80,17 +80,9 @@ def parse_sacct_output(
 ) -> List[SacctRow]:
     tzinfo = ensure_timezone(timezone)
     rows: List[SacctRow] = []
+    pending_lines: List[str] = []
 
-    for raw_line in output.splitlines():
-        line = raw_line.strip()
-        if not line:
-            continue
-
-        parts = line.split("|")
-        if len(parts) != 12:
-            LOGGER.warning("Skipping malformed sacct row: %s", raw_line)
-            continue
-
+    def process_parts(parts: Sequence[str]) -> None:
         (
             job_id,
             job_id_raw,
@@ -105,16 +97,17 @@ def parse_sacct_output(
             alloc_tres,
             elapsed,
         ) = parts
+
         if start.strip().lower() in INVALID_START_VALUES:
             LOGGER.debug("Dropping job %s due to invalid start value '%s'", job_id, start)
-            continue
+            return
 
         try:
             submit_dt = parse_datetime(submit, tzinfo)
             start_dt = parse_datetime(start, tzinfo)
         except ValueError as exc:
             LOGGER.warning("Skipping job %s because of timestamp error: %s", job_id, exc)
-            continue
+            return
 
         nodes = None
         raw_nodes_stripped = raw_nodes.strip()
@@ -164,5 +157,25 @@ def parse_sacct_output(
                 elapsed_seconds=elapsed_seconds,
             )
         )
+
+    for raw_line in output.splitlines():
+        if not pending_lines and not raw_line.strip():
+            continue
+
+        pending_lines.append(raw_line)
+        raw_row = "\n".join(pending_lines)
+        parts = raw_row.split("|", 11)
+        if len(parts) < 12:
+            continue
+        if len(parts) > 12:
+            LOGGER.warning("Skipping malformed sacct row: %s", raw_row)
+            pending_lines.clear()
+            continue
+
+        process_parts(parts)
+        pending_lines.clear()
+
+    if pending_lines:
+        LOGGER.warning("Skipping malformed sacct row: %s", "\n".join(pending_lines))
 
     return rows
