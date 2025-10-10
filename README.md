@@ -53,7 +53,7 @@ slurm-waiting-times --user alice,bob --partition mcml-a100,mcml-h100
 
 ## Output interpretation
 
-The CSV file contains job metadata plus `Nodes`, `AllocGRES`, `JobType`, and a `WaitSeconds` column. The histogram uses minutes by default, adds a dashed red line at the mean waiting time, and includes a legend annotation. All timestamps are normalised to the selected timezone.
+The CSV file contains job metadata plus `Nodes`, `AllocTRES`, `JobType`, and a `WaitSeconds` column. The histogram uses minutes by default, adds a dashed red line at the mean waiting time, and includes a legend annotation. All timestamps are normalised to the selected timezone.
 
 To inspect a histogram, run the CLI with your desired arguments and open the generated PNG in the `output/` directory.
 

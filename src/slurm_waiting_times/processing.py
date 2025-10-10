@@ -14,11 +14,43 @@ def _matches(value: str, patterns: Sequence[str]) -> bool:
 _GPU_PATTERN = re.compile(r"gpu(?::[^,()]+)*:(\d+)", flags=re.IGNORECASE)
 
 
-def _count_gpus(alloc_gres: str | None) -> int:
-    if not alloc_gres:
+def _count_gpus(alloc_tres: str | None) -> int:
+    if not alloc_tres:
         return 0
 
-    cleaned = re.sub(r"\([^)]*\)", "", alloc_gres)
+    cleaned = re.sub(r"\([^)]*\)", "", alloc_tres)
+
+    gpu_total = 0
+    has_tres_format = False
+    for chunk in cleaned.split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if not chunk.lower().startswith("gres/gpu"):
+            continue
+
+        has_tres_format = True
+        if "=" not in chunk:
+            continue
+
+        _, value = chunk.split("=", 1)
+        value = value.strip()
+        if not value:
+            continue
+
+        try:
+            gpu_total += int(value)
+            continue
+        except ValueError:
+            pass
+
+        match = re.search(r"(\d+)", value)
+        if match:
+            gpu_total += int(match.group(1))
+
+    if has_tres_format:
+        return gpu_total
+
     matches = _GPU_PATTERN.findall(cleaned)
     return sum(int(match) for match in matches)
 
@@ -27,7 +59,7 @@ def determine_job_type(row: SacctRow) -> str | None:
     """Infer the job type from sacct metadata."""
 
     nodes = row.nodes
-    gpu_count = _count_gpus(row.alloc_gres)
+    gpu_count = _count_gpus(row.alloc_tres)
 
     if nodes is not None and nodes > 1:
         return "multi-node"
@@ -85,7 +117,7 @@ def filter_rows(
                 state=row.state,
                 partition=row.partition,
                 nodes=row.nodes,
-                alloc_gres=row.alloc_gres,
+                alloc_tres=row.alloc_tres,
                 wait_seconds=wait_seconds,
                 job_type=row_job_type,
             )

@@ -28,7 +28,7 @@ def make_record(wait_minutes: float) -> JobRecord:
         state="COMPLETED",
         partition="gpu",
         nodes=1,
-        alloc_gres=None,
+        alloc_tres=None,
         wait_seconds=wait_seconds,
     )
 
