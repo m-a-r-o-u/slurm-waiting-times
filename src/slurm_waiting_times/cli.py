@@ -153,11 +153,14 @@ def _title(
     users: Sequence[str] | None,
     partitions: Sequence[str] | None,
     include_steps: bool,
+    job_type: str | None,
 ) -> str:
     user_summary = ",".join(users) if users else "all users"
     partition_summary = ",".join(partitions) if partitions else "all partitions"
     steps_summary = "steps included" if include_steps else None
     details = [user_summary, partition_summary]
+    if job_type:
+        details.append(job_type)
     if steps_summary:
         details.append(steps_summary)
     return (
@@ -275,6 +278,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             users=users,
             partitions=partitions,
             include_steps=args.include_steps,
+            job_type=args.job_type,
         ),
     )
     fig.savefig(histogram_path(prefix))
