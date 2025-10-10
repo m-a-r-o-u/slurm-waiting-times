@@ -6,12 +6,12 @@ from datetime import datetime
 from typing import Iterable, List, Sequence
 
 from .models import SacctRow
-from .time_utils import ensure_timezone, parse_datetime
+from .time_utils import ensure_timezone, parse_datetime, parse_duration_to_seconds
 
 LOGGER = logging.getLogger(__name__)
 
 
-SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocTRES"
+SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocTRES,Elapsed"
 INVALID_START_VALUES = {"unknown", "none", "", "n/a", "invalid"}
 EMPTY_FIELD_VALUES = {"", "none", "n/a", "unknown", "(null)"}
 
@@ -85,7 +85,7 @@ def parse_sacct_output(
             continue
 
         parts = line.split("|")
-        if len(parts) != 8:
+        if len(parts) != 9:
             LOGGER.warning("Skipping malformed sacct row: %s", raw_line)
             continue
 
@@ -98,6 +98,7 @@ def parse_sacct_output(
             partition,
             raw_nodes,
             alloc_tres,
+            elapsed,
         ) = parts
         if start.strip().lower() in INVALID_START_VALUES:
             LOGGER.debug("Dropping job %s due to invalid start value '%s'", job_id, start)
@@ -122,6 +123,14 @@ def parse_sacct_output(
         if alloc_tres_value and alloc_tres_value.lower() in EMPTY_FIELD_VALUES:
             alloc_tres_value = None
 
+        elapsed_seconds = None
+        elapsed_value = elapsed.strip()
+        if elapsed_value and elapsed_value.lower() not in EMPTY_FIELD_VALUES:
+            try:
+                elapsed_seconds = parse_duration_to_seconds(elapsed_value)
+            except ValueError:
+                LOGGER.debug("Unable to parse elapsed '%s' for job %s", elapsed, job_id)
+
         rows.append(
             SacctRow(
                 job_id=job_id,
@@ -132,6 +141,7 @@ def parse_sacct_output(
                 partition=partition,
                 nodes=nodes,
                 alloc_tres=alloc_tres_value,
+                elapsed_seconds=elapsed_seconds,
             )
         )
 

@@ -16,6 +16,7 @@ class SacctRow:
     partition: str
     nodes: int | None
     alloc_tres: str | None
+    elapsed_seconds: float | None
 
     @property
     def alloc_gres(self) -> str | None:  # pragma: no cover - compatibility shim

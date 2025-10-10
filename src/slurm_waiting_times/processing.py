@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
 from .models import JobRecord, SacctRow
@@ -55,6 +56,27 @@ def _count_gpus(alloc_tres: str | None) -> int:
     return sum(int(match) for match in matches)
 
 
+@dataclass(frozen=True)
+class RuntimeConstraint:
+    min_seconds: float | None = None
+    max_seconds: float | None = None
+    min_inclusive: bool = True
+    max_inclusive: bool = True
+
+    def matches(self, value: float) -> bool:
+        if self.min_seconds is not None:
+            if value < self.min_seconds:
+                return False
+            if not self.min_inclusive and value == self.min_seconds:
+                return False
+        if self.max_seconds is not None:
+            if value > self.max_seconds:
+                return False
+            if not self.max_inclusive and value == self.max_seconds:
+                return False
+        return True
+
+
 def determine_job_type(row: SacctRow) -> str | None:
     """Infer the job type from sacct metadata."""
 
@@ -84,6 +106,7 @@ def filter_rows(
     partition_filters: Sequence[str] | None = None,
     job_type: str | None = None,
     max_wait_hours: float | None = None,
+    runtime_filters: Sequence[RuntimeConstraint] | None = None,
 ) -> List[JobRecord]:
     filtered: List[JobRecord] = []
     wait_cap = None if max_wait_hours is None else max_wait_hours * 3600
@@ -108,6 +131,12 @@ def filter_rows(
         if wait_cap is not None and wait_seconds > wait_cap:
             continue
 
+        if runtime_filters:
+            if row.elapsed_seconds is None:
+                continue
+            if not all(constraint.matches(row.elapsed_seconds) for constraint in runtime_filters):
+                continue
+
         filtered.append(
             JobRecord(
                 job_id=row.job_id,
@@ -118,6 +147,7 @@ def filter_rows(
                 partition=row.partition,
                 nodes=row.nodes,
                 alloc_tres=row.alloc_tres,
+                elapsed_seconds=row.elapsed_seconds,
                 wait_seconds=wait_seconds,
                 job_type=row_job_type,
             )

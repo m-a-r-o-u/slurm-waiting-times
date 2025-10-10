@@ -8,6 +8,7 @@ from slurm_waiting_times.time_utils import (
     freedman_diaconis_bins,
     parse_datetime,
     parse_cli_datetime_window,
+    parse_duration_to_seconds,
 )
 
 
@@ -90,3 +91,21 @@ def test_parse_cli_datetime_window_invalid_month():
 
     with pytest.raises(ValueError):
         parse_cli_datetime_window("2025-13", None, default_start, default_end, tz)
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("00:00:30", 30),
+        ("01:02:03", (1 * 3600) + (2 * 60) + 3),
+        ("2-03:00:00", (2 * 24 + 3) * 3600),
+    ],
+)
+def test_parse_duration_to_seconds_valid(value, expected):
+    assert parse_duration_to_seconds(value) == expected
+
+
+@pytest.mark.parametrize("value", ["", "1:60:00", "not-a-duration"])
+def test_parse_duration_to_seconds_invalid(value):
+    with pytest.raises(ValueError):
+        parse_duration_to_seconds(value)

@@ -29,6 +29,7 @@ def make_record(wait_minutes: float) -> JobRecord:
         partition="gpu",
         nodes=1,
         alloc_tres=None,
+        elapsed_seconds=wait_seconds,
         wait_seconds=wait_seconds,
     )
 
