@@ -48,6 +48,11 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Comma-separated list of partitions to include. Wildcards are supported.",
     )
     parser.add_argument(
+        "--job-type",
+        choices=["cpu-only", "1-gpu", "single-node", "multi-node"],
+        help="Restrict results to a specific job type derived from sacct metadata.",
+    )
+    parser.add_argument(
         "--include-steps",
         action="store_true",
         help="Include job steps such as .batch and .extern entries.",
@@ -115,6 +120,7 @@ def _args_tokens(
     bins: int | None,
     bin_seconds: bool,
     max_wait_hours: float | None,
+    job_type: str | None,
 ) -> list[str]:
     tokens: list[str] = []
     if start_supplied:
@@ -128,6 +134,8 @@ def _args_tokens(
         tokens.append(f"partition={','.join(partitions)}")
     if include_steps:
         tokens.append("steps")
+    if job_type:
+        tokens.append(f"jobtype={job_type}")
     # Timezone is intentionally omitted from the filename prefix for clarity.
     if bins is not None:
         tokens.append(f"bins={bins}")
@@ -224,6 +232,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         include_steps=args.include_steps,
         user_filters=users,
         partition_filters=partitions,
+        job_type=args.job_type,
         max_wait_hours=max_wait,
     )
 
@@ -249,6 +258,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         bins=bins,
         bin_seconds=args.bin_seconds,
         max_wait_hours=max_wait,
+        job_type=args.job_type,
     )
     prefix = build_prefix(now, tokens)
 

@@ -21,7 +21,7 @@ uv pip install -e .
 ```text
 slurm-waiting-times [--start <time>] [--end <time>] [--user <list>] [--partition <list>] \
                     [--include-steps] [--tz <zone>] [--bins <n>] [--bin-seconds] \
-                    [--max-wait-hours <hours>] [--dry-run]
+                    [--max-wait-hours <hours>] [--job-type <kind>] [--dry-run]
 ```
 
 * `--start` / `--end`: ISO or Slurm-style datetimes. Defaults to the last 14 days ending “now”.
@@ -29,6 +29,7 @@ slurm-waiting-times [--start <time>] [--end <time>] [--user <list>] [--partition
   that month as appropriate, allowing quick whole-month reports.
 * `--user`: comma-separated users to include. Array-task IDs (e.g. `12345_7`) are kept, job steps (`12345.batch`) are dropped unless `--include-steps` is present.
 * `--partition`: comma-separated list of partitions; shell-style wildcards are accepted.
+* `--job-type`: restrict results to `cpu-only`, `1-gpu`, `single-node`, or `multi-node` jobs.
 * `--tz`: interpret timestamps in the supplied IANA timezone (defaults to the local system zone).
 * `--bins`: override the Freedman–Diaconis bin selection.
 * `--bin-seconds`: express waiting times in seconds rather than minutes on the histogram X-axis.
@@ -52,7 +53,7 @@ slurm-waiting-times --user alice,bob --partition mcml-a100,mcml-h100
 
 ## Output interpretation
 
-The CSV file contains job metadata plus a `WaitSeconds` column. The histogram uses minutes by default, adds a dashed red line at the mean waiting time, and includes a legend annotation. All timestamps are normalised to the selected timezone.
+The CSV file contains job metadata plus `Nodes`, `AllocGRES`, `JobType`, and a `WaitSeconds` column. The histogram uses minutes by default, adds a dashed red line at the mean waiting time, and includes a legend annotation. All timestamps are normalised to the selected timezone.
 
 To inspect a histogram, run the CLI with your desired arguments and open the generated PNG in the `output/` directory.
 
