@@ -39,6 +39,28 @@ def test_parse_sacct_output_warns_on_bad_timestamp(caplog):
     assert "timestamp error" in caplog.text
 
 
+def test_parse_sacct_output_handles_multiline_submit_line():
+    output = "\n".join(
+        [
+            "5300915|5300915|interactive|salloc -p debug --time=01:00:00 --pty bash -i -c",
+            "      echo 'line one'",
+            "      echo 'line two'",
+            "    |carol|2025-08-30T17:40:10|2025-08-30T17:45:10|COMPLETED|gpu|1|cpu=4,mem=16G|00:05:00",
+        ]
+    )
+
+    rows = parse_sacct_output(output, timezone="UTC")
+
+    assert len(rows) == 1
+    assert rows[0].job_id == "5300915"
+    assert rows[0].user == "carol"
+    assert rows[0].submit_line == (
+        "salloc -p debug --time=01:00:00 --pty bash -i -c\n"
+        "      echo 'line one'\n"
+        "      echo 'line two'"
+    )
+
+
 def test_build_sacct_command_includes_all_users_flag_by_default():
     start = datetime(2025, 9, 15)
     end = datetime(2025, 9, 22)
