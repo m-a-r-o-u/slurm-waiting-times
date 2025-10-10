@@ -9,6 +9,9 @@ class SacctRow:
     """Representation of a row emitted by ``sacct``."""
 
     job_id: str
+    job_id_raw: str | None
+    job_name: str | None
+    submit_line: str | None
     user: str
     submit_time: datetime
     start_time: datetime
@@ -35,3 +38,4 @@ class JobRecord(SacctRow):
 
     wait_seconds: float
     job_type: str | None = None
+    slurm_job_type: str | None = None

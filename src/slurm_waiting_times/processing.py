@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
@@ -98,6 +99,40 @@ def determine_job_type(row: SacctRow) -> str | None:
     return None
 
 
+def _infer_slurm_job_types(rows: Sequence[SacctRow]) -> dict[str, str | None]:
+    groups: dict[str, list[SacctRow]] = defaultdict(list)
+    for row in rows:
+        key = row.job_id_raw or row.job_id.split(".", 1)[0]
+        groups[key].append(row)
+
+    slurm_types: dict[str, str | None] = {}
+    for key, group_rows in groups.items():
+        job_ids = [entry.job_id for entry in group_rows]
+        submit_lines = [entry.submit_line for entry in group_rows if entry.submit_line]
+
+        if any(job_id.endswith(".batch") for job_id in job_ids):
+            slurm_types[key] = "batch"
+            continue
+
+        step_ids = [job_id for job_id in job_ids if "." in job_id]
+        if step_ids:
+            slurm_types[key] = "interactive"
+            continue
+
+        lowered_submit_lines = [line.strip().lower() for line in submit_lines if line.strip()]
+        if any(line.startswith("sbatch") for line in lowered_submit_lines):
+            slurm_types[key] = "batch"
+            continue
+
+        if any(line.startswith(("salloc", "srun")) for line in lowered_submit_lines):
+            slurm_types[key] = "interactive"
+            continue
+
+        slurm_types[key] = None
+
+    return slurm_types
+
+
 def filter_rows(
     rows: Iterable[SacctRow],
     *,
@@ -105,13 +140,17 @@ def filter_rows(
     user_filters: Sequence[str] | None = None,
     partition_filters: Sequence[str] | None = None,
     job_type: str | None = None,
+    slurm_job_type: str | None = None,
     max_wait_hours: float | None = None,
     runtime_filters: Sequence[RuntimeConstraint] | None = None,
 ) -> List[JobRecord]:
+    rows_sequence = list(rows)
+    slurm_types = _infer_slurm_job_types(rows_sequence)
+
     filtered: List[JobRecord] = []
     wait_cap = None if max_wait_hours is None else max_wait_hours * 3600
 
-    for row in rows:
+    for row in rows_sequence:
         if not include_steps and "." in row.job_id:
             continue
 
@@ -124,8 +163,12 @@ def filter_rows(
         wait_seconds = (row.start_time - row.submit_time).total_seconds()
 
         row_job_type = determine_job_type(row)
+        row_slurm_job_type = slurm_types.get(row.job_id_raw or row.job_id.split(".", 1)[0])
 
         if job_type and row_job_type != job_type:
+            continue
+
+        if slurm_job_type and row_slurm_job_type != slurm_job_type:
             continue
 
         if wait_cap is not None and wait_seconds > wait_cap:
@@ -140,6 +183,9 @@ def filter_rows(
         filtered.append(
             JobRecord(
                 job_id=row.job_id,
+                job_id_raw=row.job_id_raw,
+                job_name=row.job_name,
+                submit_line=row.submit_line,
                 user=row.user,
                 submit_time=row.submit_time,
                 start_time=row.start_time,
@@ -150,6 +196,7 @@ def filter_rows(
                 elapsed_seconds=row.elapsed_seconds,
                 wait_seconds=wait_seconds,
                 job_type=row_job_type,
+                slurm_job_type=row_slurm_job_type,
             )
         )
 
