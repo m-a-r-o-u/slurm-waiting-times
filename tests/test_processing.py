@@ -17,11 +17,18 @@ def make_row(
     nodes: int | None = 1,
     alloc_tres: str | None = "gres/gpu=1",
     elapsed_seconds: float | None = 600,
+    job_id_raw: str | None = None,
+    submit_line: str | None = None,
 ) -> SacctRow:
     submit = datetime(2024, 5, 1, 12, 0, tzinfo=TZ) + timedelta(minutes=submit_offset)
     start = datetime(2024, 5, 1, 12, 0, tzinfo=TZ) + timedelta(minutes=start_offset)
+    if job_id_raw is None:
+        job_id_raw = job_id.split(".", 1)[0]
     return SacctRow(
         job_id=job_id,
+        job_id_raw=job_id_raw,
+        job_name=None,
+        submit_line=submit_line,
         user=user,
         submit_time=submit,
         start_time=start,
@@ -113,6 +120,30 @@ def test_filter_rows_supports_job_type_filter():
     filtered = filter_rows(rows, job_type="1-gpu")
     assert [record.job_id for record in filtered] == ["one-gpu"]
     assert filtered[0].job_type == "1-gpu"
+
+
+def test_filter_rows_slurm_job_type_batch_detection():
+    rows = [
+        make_row("100", 0, 5, submit_line="sbatch job.sh"),
+        make_row("100.batch", 0, 5, submit_line=None),
+    ]
+
+    filtered = filter_rows(rows, slurm_job_type="batch")
+
+    assert [record.job_id for record in filtered] == ["100"]
+    assert filtered[0].slurm_job_type == "batch"
+
+
+def test_filter_rows_slurm_job_type_interactive_detection():
+    rows = [
+        make_row("200", 0, 5, submit_line="salloc --nodes=1"),
+        make_row("200.extern", 0, 5, submit_line=None),
+    ]
+
+    filtered = filter_rows(rows, slurm_job_type="interactive")
+
+    assert [record.job_id for record in filtered] == ["200"]
+    assert filtered[0].slurm_job_type == "interactive"
 
 
 def test_filter_rows_runtime_filters():

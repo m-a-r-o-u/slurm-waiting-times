@@ -22,6 +22,9 @@ def make_record(wait_minutes: float) -> JobRecord:
     wait_seconds = (start - submit).total_seconds()
     return JobRecord(
         job_id="1",
+        job_id_raw="1",
+        job_name=None,
+        submit_line=None,
         user="alice",
         submit_time=submit,
         start_time=start,
@@ -31,6 +34,8 @@ def make_record(wait_minutes: float) -> JobRecord:
         alloc_tres=None,
         elapsed_seconds=wait_seconds,
         wait_seconds=wait_seconds,
+        job_type=None,
+        slurm_job_type=None,
     )
 
 

@@ -11,7 +11,9 @@ from .time_utils import ensure_timezone, parse_datetime, parse_duration_to_secon
 LOGGER = logging.getLogger(__name__)
 
 
-SACCT_FORMAT = "JobID,User,Submit,Start,State,Partition,NNodes,AllocTRES,Elapsed"
+SACCT_FORMAT = (
+    "JobID,JobIDRaw,JobName,SubmitLine,User,Submit,Start,State,Partition,NNodes,AllocTRES,Elapsed"
+)
 INVALID_START_VALUES = {"unknown", "none", "", "n/a", "invalid"}
 EMPTY_FIELD_VALUES = {"", "none", "n/a", "unknown", "(null)"}
 
@@ -85,12 +87,15 @@ def parse_sacct_output(
             continue
 
         parts = line.split("|")
-        if len(parts) != 9:
+        if len(parts) != 12:
             LOGGER.warning("Skipping malformed sacct row: %s", raw_line)
             continue
 
         (
             job_id,
+            job_id_raw,
+            job_name,
+            submit_line,
             user,
             submit,
             start,
@@ -131,9 +136,24 @@ def parse_sacct_output(
             except ValueError:
                 LOGGER.debug("Unable to parse elapsed '%s' for job %s", elapsed, job_id)
 
+        job_id_raw_value = job_id_raw.strip() or None
+        if not job_id_raw_value:
+            job_id_raw_value = job_id.split(".", 1)[0]
+
+        job_name_value = job_name.strip() or None
+        if job_name_value and job_name_value.lower() in EMPTY_FIELD_VALUES:
+            job_name_value = None
+
+        submit_line_value = submit_line.strip() or None
+        if submit_line_value and submit_line_value.lower() in EMPTY_FIELD_VALUES:
+            submit_line_value = None
+
         rows.append(
             SacctRow(
                 job_id=job_id,
+                job_id_raw=job_id_raw_value,
+                job_name=job_name_value,
+                submit_line=submit_line_value,
                 user=user,
                 submit_time=submit_dt,
                 start_time=start_dt,

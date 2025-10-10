@@ -55,6 +55,11 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Restrict results to a specific job type derived from sacct metadata.",
     )
     parser.add_argument(
+        "--slurm-job-type",
+        choices=["batch", "interactive"],
+        help="Restrict results to batch or interactive Slurm submissions.",
+    )
+    parser.add_argument(
         "--include-steps",
         action="store_true",
         help="Include job steps such as .batch and .extern entries.",
@@ -215,6 +220,7 @@ def _args_tokens(
     bin_seconds: bool,
     max_wait_hours: float | None,
     job_type: str | None,
+    slurm_job_type: str | None,
     runtime_filters: Sequence[str] | None,
 ) -> list[str]:
     tokens: list[str] = []
@@ -231,6 +237,8 @@ def _args_tokens(
         tokens.append("steps")
     if job_type:
         tokens.append(f"jobtype={job_type}")
+    if slurm_job_type:
+        tokens.append(f"slurmtype={slurm_job_type}")
     # Timezone is intentionally omitted from the filename prefix for clarity.
     if bins is not None:
         tokens.append(f"bins={bins}")
@@ -251,6 +259,7 @@ def _title(
     partitions: Sequence[str] | None,
     include_steps: bool,
     job_type: str | None,
+    slurm_job_type: str | None,
 ) -> str:
     user_summary = ",".join(users) if users else "all users"
     partition_summary = ",".join(partitions) if partitions else "all partitions"
@@ -258,6 +267,8 @@ def _title(
     details = [user_summary, partition_summary]
     if job_type:
         details.append(job_type)
+    if slurm_job_type:
+        details.append(slurm_job_type)
     if steps_summary:
         details.append(steps_summary)
     return (
@@ -334,6 +345,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         user_filters=users,
         partition_filters=partitions,
         job_type=args.job_type,
+        slurm_job_type=args.slurm_job_type,
         max_wait_hours=max_wait,
         runtime_filters=runtime_constraints,
     )
@@ -361,6 +373,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         bin_seconds=args.bin_seconds,
         max_wait_hours=max_wait,
         job_type=args.job_type,
+        slurm_job_type=args.slurm_job_type,
         runtime_filters=args.runtime,
     )
     prefix = build_prefix(now, tokens)
@@ -379,6 +392,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             partitions=partitions,
             include_steps=args.include_steps,
             job_type=args.job_type,
+            slurm_job_type=args.slurm_job_type,
         ),
     )
     fig.savefig(histogram_path(prefix))
